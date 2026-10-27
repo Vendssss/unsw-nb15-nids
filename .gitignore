@@ -1,0 +1,37 @@
+# --- Data: never commit (size + licensing). Keep folder placeholders only. ---
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+*.csv
+*.parquet
+
+# --- Trained models / artifacts (regenerable) ---
+models/*
+!models/.gitkeep
+*.joblib
+*.pkl
+*.pt
+*.pth
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Secrets ---
+.env

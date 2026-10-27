@@ -1,0 +1,20 @@
+# Core data + ML
+numpy>=2.1
+pandas>=2.2
+scikit-learn>=1.6
+joblib>=1.4
+
+# Deep learning (CPU wheel from PyPI is fine for this dataset size)
+torch>=2.9
+
+# Plotting
+matplotlib>=3.9
+seaborn>=0.13
+
+# Notebooks in VS Code
+ipykernel>=6.29
+
+# Dev
+pytest>=8.3
+
+# Phase 8 (API + Docker) deps get added when we reach that phase.
