@@ -4,7 +4,8 @@ Classifying network flows as **normal** or **attack** using the
 [UNSW-NB15](https://research.unsw.edu.au/projects/unsw-nb15-dataset) dataset,
 comparing a scikit-learn random forest against a PyTorch feed-forward network.
 
-> 🚧 Work in progress. See [PROGRESS.md](PROGRESS.md) for current status.
+> 🚧 Work in progress. See [PROGRESS.md](PROGRESS.md) for current status and
+> [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md) for design decisions and a glossary.
 
 ## Goals
 
@@ -32,6 +33,7 @@ data/raw/UNSW_NB15_testing-set.csv
 ```
 data/raw/          original CSVs (git-ignored)
 data/processed/    transformed data (git-ignored)
+docs/              learning log: architecture decisions + glossary
 notebooks/         exploration and experiments
 src/nids/          reusable code: config, preprocessing, models
 models/            trained model artifacts (git-ignored)

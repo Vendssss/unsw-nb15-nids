@@ -6,7 +6,7 @@ Resume point for working across machines. Update after every phase.
 
 | Phase | Description | Status |
 |---|---|---|
-| 1 | Repo setup | ✅ Done (pending first commit) |
+| 1 | Repo setup | ✅ Done |
 | 2 | Data exploration | ⏭️ Next |
 | 3 | Preprocessing | ⬜ |
 | 4 | Random forest baseline | ⬜ |
@@ -21,7 +21,9 @@ Resume point for working across machines. Update after every phase.
 2. `python -m venv .venv` then `.venv\Scripts\Activate.ps1`
 3. `pip install -r requirements.txt`
 4. Download the UNSW-NB15 training and testing CSVs into `data/raw/` (data is not in git)
-5. Read the latest phase notes below, then continue from **Next step**
+5. Run `pytest` (should pass), read the latest phase notes below, then continue from **Next step**
+
+For the why behind each decision and a plain-English glossary, see [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md).
 
 ## Phase notes
 
@@ -30,7 +32,11 @@ Resume point for working across machines. Update after every phase.
 - Created folder layout: `data/{raw,processed}`, `notebooks/`, `src/nids/`, `models/`, `reports/figures/`, `tests/`
 - `.gitignore` excludes data, model artifacts, `.venv`, notebook checkpoints
 - `requirements.txt` with lower-bound versions; Python 3.14 on dev machine
-- Exercise assigned: write `src/nids/config.py` (path constants with `pathlib`)
+- `src/nids/config.py`: all paths anchored on `__file__`, plus `RANDOM_STATE = 42`
+- `tests/test_config.py` + `pyproject.toml` (pytest finds `src/`)
+- `docs/LEARNING_LOG.md`: architecture, glossary, change log
+- GitHub: `Vendssss/unsw-nb15-nids`, branch `main`
+- `.venv` created (Python 3.14.7); packages being installed
 
 **Decisions**
 - Use the official training/testing CSVs as-is; never tune on the test set
@@ -38,4 +44,6 @@ Resume point for working across machines. Update after every phase.
 
 ## Next step
 
-Finish `src/nids/config.py` exercise, then Phase 2: data exploration notebook.
+1. Finish `pip install -r requirements.txt` inside the active `.venv`
+2. Download the two CSVs into `data/raw/`
+3. Start Phase 2: data exploration notebook
