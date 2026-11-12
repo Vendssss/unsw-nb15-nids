@@ -23,15 +23,18 @@ Network Intrusion Detection/      <- local folder (GitHub repo: unsw-nb15-nids)
 │   └── LEARNING_LOG.md           this file
 ├── models/                       saved trained models (git-ignored)
 ├── notebooks/
-│   └── 01_data_exploration.ipynb class balance, features, traps (Phase 2)
-├── reports/figures/              charts used in the README (01_*.png)
+│   ├── 01_data_exploration.ipynb class balance, features, traps (Phase 2)
+│   └── 02_preprocessing.ipynb    pipeline walkthrough + leakage demos (Phase 3)
+├── reports/figures/              charts used in the README (01_*, 02_*)
 ├── src/nids/
 │   ├── __init__.py               marks nids as an importable package
 │   ├── config.py                 every path and constant in one place
-│   └── data.py                   load_split(): loads + validates a split
+│   ├── data.py                   load_split(): loads + validates a split
+│   └── preprocess.py             prepare(): train/val/test arrays, fitted on train only
 ├── tests/
 │   ├── test_config.py            checks config paths are wired correctly
-│   └── test_data.py              checks row counts and schema of the data
+│   ├── test_data.py              checks row counts and schema of the data
+│   └── test_preprocess.py        unseen categories, train-only fitting, no label columns
 ├── .gitignore                    what git must never track
 ├── .vscode/extensions.json       recommended VS Code extensions
 ├── pyproject.toml                package metadata + pytest settings
@@ -43,7 +46,7 @@ Network Intrusion Detection/      <- local folder (GitHub repo: unsw-nb15-nids)
 ### How the pieces talk to each other
 
 ```
-data/raw/*.csv ──► src/nids (config → preprocessing → models) ──► models/*.joblib, *.pt
+data/raw/*.csv ──► data.load_split ──► preprocess.prepare ──► models (Phase 4-5) ──► models/*.joblib, *.pt
                          ▲                                     │
                 notebooks/ import from here                    ▼
                                                     reports/figures + README results
@@ -70,6 +73,11 @@ other way round.
 | D11 | Drop `id` and `attack_cat` for binary models | `id` is a row number (no meaning); `attack_cat == "Normal"` exactly equals `label == 0`, so keeping it is label leakage. |
 | D12 | Keep TTL features, but run an ablation without them in Phase 4 | `sttl` is the top signal only because of how the lab was set up. Measuring the drop without it shows whether the model learned attacks or machines. |
 | D13 | Don't de-duplicate the official test set | It's the shared benchmark; changing it makes results incomparable. The 10.4% train/test overlap is documented instead. |
+| D14 | One `ColumnTransformer` does all preprocessing, fitted once on the training part | Bundling the steps means they can't be applied in the wrong order or fitted on the wrong data. The same fitted object will serve the API in Phase 8. |
+| D15 | 20% stratified validation split from official train | Big enough (35k rows) for reliable metrics; stratified so it has the same 68/32 mix as the training part. |
+| D16 | `log1p` on 26 skewed columns, then standard scaling | Byte and packet counts have skew 40+. Trees don't care, but the neural net would otherwise be dominated by a few huge flows. |
+| D17 | Same feature arrays for both models | A fair comparison: any difference in results comes from the model, not from different inputs. |
+| D18 | Arrays stored as float32 | Half the memory of float64, and it's PyTorch's default type. |
 
 ---
 
@@ -173,6 +181,15 @@ other way round.
 | **Duplicate rows** | Identical rows. Floods and scans create many; they make the model over-weight those patterns. |
 | **Irreducible error** | Mistakes no model can avoid, e.g. identical inputs labelled differently. |
 | **Notebook (`.ipynb`)** | A document mixing code, its output and explanations. Good for exploring and showing work. |
+| **Fit / transform** | `fit` *learns* from data (categories, mean, std). `transform` *applies* what was learned. Fit on train only; transform everything. |
+| **Standardisation (StandardScaler)** | Rescale a column to mean 0, spread (std) 1: `(x − mean) / std`. Puts bytes and seconds on the same footing. |
+| **Pipeline** | A chain of steps run in order as one object (e.g. log1p → scale). |
+| **ColumnTransformer** | Applies different pipelines to different columns (one-hot for text, scaling for numbers) and glues the results together. |
+| **Stratified split** | A random split that keeps the same label mix in each part. |
+| **Decision tree** | A model that asks yes/no questions ("is sbytes > 430?") until it reaches an answer. A *stump* is a tree with one question. |
+| **Overfitting** | Memorising the training data instead of learning general patterns. Shows up as a big gap between training and validation scores (99.8% vs 94.9% here). |
+| **float32 / float64** | Number precision. float32 uses 4 bytes per number, float64 uses 8. ML rarely needs the extra precision. |
+| **Fixture (pytest)** | Setup code shared between tests, e.g. running `prepare()` once for several tests. |
 | **Editable install (`pip install -e .`)** | Installs your own `src/` package as a link, so edits apply immediately and any script can import it. |
 
 ---
@@ -226,3 +243,23 @@ other way round.
 | Official UNSW SharePoint wouldn't open from the tool browser | Access was denied | Used a Hugging Face mirror, then verified it | A mirror is fine **if** you verify it against the source's published numbers. |
 | Files named "training" had 82,332 rows, "testing" 175,341 | Names are swapped in the distributed copy | Mapped in `config.py`; loader checks row counts | Never trust a filename. Check row counts against the paper. |
 | Notebook execution failed: "directory name is invalid" | `notebooks/` didn't exist (empty folders aren't copied or tracked) | Created the folder | Same root cause as `.gitkeep`: empty folders don't survive moves or git. |
+
+### Phase 3: Preprocessing
+
+**What we built**
+- `src/nids/preprocess.py`: `split_xy()`, `build_preprocessor()`, `prepare()` returning train/val/test arrays + feature names + the fitted preprocessor
+- `config.py`: `LOG_COLS` (26 skewed columns), `TTL_COLS` (for the ablation), `VAL_SIZE = 0.2`
+- `tests/test_preprocess.py`: unseen categories are ignored, scaler stats come from train only, shapes, no NaNs, no label columns, TTL exclusion
+- `notebooks/02_preprocessing.ipynb` with two live demos, and figure `02_log_and_scale.png`
+
+**What the demos showed**
+- Leaving `attack_cat` in: a one-question tree scores **100.0%** on test. That's what leakage looks like
+- An unlimited decision tree: **99.8%** on its own training data vs **94.9%** on validation. Never report training scores
+- After scaling, train columns are exactly mean 0 / std 1, while test drifts slightly (+0.025). That gap is proof we didn't fit on test
+
+**Problems we hit and what they taught us**
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| Phase 2 work wasn't committed when Phase 3 started | Commit step skipped | Committed and pushed Phase 2 on its own before Phase 3 | One commit per phase keeps history readable, and only pushed commits count on your GitHub graph. |
+| Training part has 7 states, not 9 | The single `PAR` and `URN` rows fell into validation | Nothing to fix: `handle_unknown="ignore"` covers it | The encoder only knows what it was fitted on. Rare values can vanish from a split. |

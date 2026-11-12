@@ -8,8 +8,8 @@ Resume point for working across machines. Update after every phase.
 |---|---|---|
 | 1 | Repo setup | ✅ Done |
 | 2 | Data exploration | ✅ Done |
-| 3 | Preprocessing | ⏭️ Next |
-| 4 | Random forest baseline | ⬜ |
+| 3 | Preprocessing | ✅ Done |
+| 4 | Random forest baseline | ⏭️ Next |
 | 5 | PyTorch feed-forward network | ⬜ |
 | 6 | Honest model comparison in README | ⬜ |
 | 7 | Stretch: multi-class by attack category | ⬜ |
@@ -24,7 +24,7 @@ Resume point for working across machines. Update after every phase.
 5. Check the files match (PowerShell: `Get-FileHash data\raw\*.csv`):
    - `UNSW_NB15_testing-set.csv` (official **train**, 175,341 rows): `BEC7DD5EC88DC2A0CCC7A07879D338395ED7421750F675FD0339E07DFE0648FA`
    - `UNSW_NB15_training-set.csv` (official **test**, 82,332 rows): `734FE6642EDF758F7C94D7D9149426B49D202FE8E7BF0BEF47392489C3C0A559`
-6. Run `pytest` (6 should pass), read the latest phase notes below, then continue from **Next step**
+6. Run `pytest` (12 should pass), read the latest phase notes below, then continue from **Next step**
 
 For the why behind each decision and a plain-English glossary, see [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md).
 
@@ -62,6 +62,29 @@ For the why behind each decision and a plain-English glossary, see [docs/LEARNIN
 
 **Open exercise:** `bytes_ratio(df)` at the end of the notebook (send for review)
 
+### Phase 3: Preprocessing
+
+- `src/nids/preprocess.py`: `split_xy()`, `build_preprocessor()`, `prepare(exclude=(), log_transform=True)` → `Splits` dataclass
+- Pipeline: drop `id`/`attack_cat`/`label` → one-hot `proto`/`service`/`state` (`handle_unknown="ignore"`) → `log1p` on 26 skewed columns (`config.LOG_COLS`) → `StandardScaler`
+- Validation: 20% of official train, stratified, `random_state=42`
+- Fit on the training part only; validation and test are transform-only
+- `tests/test_preprocess.py` (6 tests; 12 total pass)
+- `notebooks/02_preprocessing.ipynb` (executed) + `reports/figures/02_log_and_scale.png`
+
+**Key numbers**
+- Train 140,272 × 192, val 35,069 × 192, test 82,332 × 192 (133 proto + 13 service + 7 state + 39 numeric)
+- Attack share: train 68.1%, val 68.1% (stratified), test 55.1%
+- Leakage demo: keeping `attack_cat` gives a depth-1 tree **100.0%** test accuracy
+- Overfitting demo: unlimited decision tree 99.8% on train vs 94.9% on validation (depth 44, 4,692 leaves)
+- Scaled test columns drift (mean +0.025) as expected; train is exactly 0/1
+
+**Decisions**
+- Same features for RF and NN; log/scale is harmless for trees and needed for the NN
+- `prepare(exclude=config.TTL_COLS)` for the Phase 4 ablation
+- Arrays are float32 (half the memory, what PyTorch uses)
+
+**Open exercise:** `test_validation_keeps_class_ratio` in `tests/test_preprocess.py` (see end of notebook 02)
+
 ## Next step
 
-Phase 3: preprocessing pipeline in `src/nids/preprocess.py` (drop leaky columns, one-hot, scale, fit on train only), plus a validation split carved from train.
+Phase 4: random forest baseline in `src/nids/train_rf.py`. Precision, recall, F1 and confusion matrix on validation, then one final test evaluation. Plus the TTL ablation.

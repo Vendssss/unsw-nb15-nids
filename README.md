@@ -53,6 +53,22 @@ Full analysis: [notebooks/01_data_exploration.ipynb](notebooks/01_data_explorati
 ![Class balance](reports/figures/01_class_balance.png)
 ![Bytes by label](reports/figures/01_bytes_by_label.png)
 
+## Preprocessing
+
+Walkthrough: [notebooks/02_preprocessing.ipynb](notebooks/02_preprocessing.ipynb) · Code: [src/nids/preprocess.py](src/nids/preprocess.py)
+
+1. Drop `id` (row number) and `attack_cat` (encodes the label: with it, a one-question tree scores 100% on test)
+2. Hold out 20% of the official training split as a stratified validation set
+3. One-hot encode `proto`, `service`, `state`; categories unseen in training are ignored
+4. `log1p` on 26 heavily skewed volume and timing features, then standard scaling
+5. **Fit on the training part only**; validation and test are transform-only
+
+| Split | Flows | Features | Attack share |
+|---|---|---|---|
+| Train | 140,272 | 192 | 68.1% |
+| Validation | 35,069 | 192 | 68.1% |
+| Test (official) | 82,332 | 192 | 55.1% |
+
 ## Project structure
 
 ```
