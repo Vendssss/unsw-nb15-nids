@@ -1,0 +1,140 @@
+{
+  "params": {
+    "n_estimators": 200,
+    "max_features": "sqrt",
+    "min_samples_leaf": 1,
+    "class_weight": null
+  },
+  "tuning": [
+    {
+      "min_samples_leaf": 1,
+      "class_weight": null,
+      "precision": 0.9636,
+      "recall": 0.9783,
+      "f1": 0.9709,
+      "false_positive_rate": 0.0788,
+      "seconds": 6.9
+    },
+    {
+      "min_samples_leaf": 5,
+      "class_weight": null,
+      "precision": 0.9547,
+      "recall": 0.9827,
+      "f1": 0.9685,
+      "false_positive_rate": 0.0994,
+      "seconds": 6.5
+    },
+    {
+      "min_samples_leaf": 1,
+      "class_weight": "balanced",
+      "precision": 0.9734,
+      "recall": 0.9633,
+      "f1": 0.9683,
+      "false_positive_rate": 0.0561,
+      "seconds": 6.8
+    },
+    {
+      "min_samples_leaf": 5,
+      "class_weight": "balanced",
+      "precision": 0.9759,
+      "recall": 0.9514,
+      "f1": 0.9635,
+      "false_positive_rate": 0.05,
+      "seconds": 6.5
+    }
+  ],
+  "validation": {
+    "accuracy": 0.9601,
+    "precision": 0.9636,
+    "recall": 0.9783,
+    "f1": 0.9709,
+    "false_positive_rate": 0.0788,
+    "confusion": {
+      "tn": 10318,
+      "fp": 882,
+      "fn": 519,
+      "tp": 23350
+    },
+    "roc_auc": 0.9938
+  },
+  "test": {
+    "accuracy": 0.8701,
+    "precision": 0.8161,
+    "recall": 0.9865,
+    "f1": 0.8932,
+    "false_positive_rate": 0.2725,
+    "confusion": {
+      "tn": 26919,
+      "fp": 10081,
+      "fn": 610,
+      "tp": 44722
+    },
+    "roc_auc": 0.9793
+  },
+  "baseline_always_attack_test": {
+    "accuracy": 0.5506,
+    "precision": 0.5506,
+    "recall": 1.0,
+    "f1": 0.7102,
+    "false_positive_rate": 1.0,
+    "confusion": {
+      "tn": 0,
+      "fp": 37000,
+      "fn": 0,
+      "tp": 45332
+    }
+  },
+  "ablation_no_ttl": {
+    "validation": {
+      "accuracy": 0.9594,
+      "precision": 0.9631,
+      "recall": 0.9778,
+      "f1": 0.9704,
+      "false_positive_rate": 0.0797,
+      "confusion": {
+        "tn": 10307,
+        "fp": 893,
+        "fn": 531,
+        "tp": 23338
+      },
+      "roc_auc": 0.9938
+    },
+    "test": {
+      "accuracy": 0.8684,
+      "precision": 0.815,
+      "recall": 0.9845,
+      "f1": 0.8918,
+      "false_positive_rate": 0.2738,
+      "confusion": {
+        "tn": 26868,
+        "fp": 10132,
+        "fn": 703,
+        "tp": 44629
+      },
+      "roc_auc": 0.978
+    }
+  },
+  "false_positive_ttl_check": {
+    "false_positives": 10081,
+    "fp_share_with_sttl_254": 0.88,
+    "normal_share_sttl_254_train": 0.2005,
+    "normal_share_sttl_254_test": 0.4067
+  },
+  "top_features": {
+    "sttl": 0.0934,
+    "ct_state_ttl": 0.0668,
+    "dttl": 0.0584,
+    "dload": 0.0557,
+    "rate": 0.0473,
+    "sload": 0.0443,
+    "ackdat": 0.0359,
+    "tcprtt": 0.0347,
+    "dur": 0.0342,
+    "synack": 0.0326,
+    "sbytes": 0.0316,
+    "dmean": 0.0302,
+    "dpkts": 0.0297,
+    "ct_srv_dst": 0.0291,
+    "dbytes": 0.029
+  }
+}

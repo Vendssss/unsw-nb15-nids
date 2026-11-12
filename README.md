@@ -97,7 +97,37 @@ pytest
 
 ## Results
 
-_Coming in phases 4–6._
+### Random forest baseline
+
+Code: [src/nids/train_rf.py](src/nids/train_rf.py) · Run: `python -m nids.train_rf` · Metrics: [reports/metrics/rf.json](reports/metrics/rf.json)
+
+200 trees, `max_features="sqrt"`. Leaf size and class weighting were chosen on the **validation set**,
+and the test set was evaluated once. Attack is the positive class.
+
+| | Accuracy | Precision | Recall | F1 | False-positive rate | ROC AUC |
+|---|---|---|---|---|---|---|
+| Always predict "attack" (test) | 55.1% | 55.1% | 100% | 0.710 | 100% | n/a |
+| Random forest (validation) | n/a | 96.4% | 97.8% | 0.971 | 7.9% | n/a |
+| **Random forest (test)** | **87.0%** | **81.6%** | **98.7%** | **0.893** | **27.2%** | **0.979** |
+| Random forest without TTL features (test) | 86.8% | 81.5% | 98.5% | 0.892 | 27.4% | n/a |
+
+![Random forest confusion matrix](reports/figures/04_rf_confusion_test.png)
+
+**Reading the results honestly**
+
+- The model **catches 98.7% of attacks** (610 missed out of 45,332).
+- It also **flags 27.2% of normal flows** as attacks (10,081 false alarms). In a SOC, that's alert fatigue.
+- **Validation F1 is 0.971 but test F1 is 0.893.** Validation is a random slice of the training traffic;
+  the official test set is different traffic. The test number is the one that counts.
+- **88% of the false alarms have source TTL 254**, the TTL most associated with attacks in training.
+  Normal traffic with TTL 254 doubles from 20.1% of normal flows in train to 40.7% in test.
+- **Removing the TTL columns didn't help** (F1 0.893 → 0.892, false-positive rate unchanged). The model
+  likely recovers the same "which lab machine" signal from correlated features, such as TCP timing.
+  That makes this a dataset limitation, not something one dropped column can fix.
+- ROC AUC of 0.979 says the model *ranks* flows well. The 0.5 decision threshold was learned on traffic
+  that's 68% attack, which fits test traffic (55% attack) less well.
+
+![Random forest feature importance](reports/figures/04_rf_feature_importance.png)
 
 ## Model comparison
 

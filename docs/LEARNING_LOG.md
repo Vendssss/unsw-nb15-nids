@@ -25,13 +25,18 @@ Network Intrusion Detection/      <- local folder (GitHub repo: unsw-nb15-nids)
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb class balance, features, traps (Phase 2)
 │   └── 02_preprocessing.ipynb    pipeline walkthrough + leakage demos (Phase 3)
-├── reports/figures/              charts used in the README (01_*, 02_*)
+├── reports/
+│   ├── figures/                  charts used in the README (01_*, 02_*, 04_*)
+│   └── metrics/rf.json           every RF number, machine-readable (committed)
 ├── src/nids/
 │   ├── __init__.py               marks nids as an importable package
 │   ├── config.py                 every path and constant in one place
 │   ├── data.py                   load_split(): loads + validates a split
-│   └── preprocess.py             prepare(): train/val/test arrays, fitted on train only
+│   ├── preprocess.py             prepare(): train/val/test arrays, fitted on train only
+│   ├── evaluate.py               shared metrics + confusion-matrix plot (all models)
+│   └── train_rf.py               random forest: tune on val, test once, ablation
 ├── tests/
+│   ├── test_evaluate.py          metrics checked against a hand calculation
 │   ├── test_config.py            checks config paths are wired correctly
 │   ├── test_data.py              checks row counts and schema of the data
 │   └── test_preprocess.py        unseen categories, train-only fitting, no label columns
@@ -78,6 +83,12 @@ other way round.
 | D16 | `log1p` on 26 skewed columns, then standard scaling | Byte and packet counts have skew 40+. Trees don't care, but the neural net would otherwise be dominated by a few huge flows. |
 | D17 | Same feature arrays for both models | A fair comparison: any difference in results comes from the model, not from different inputs. |
 | D18 | Arrays stored as float32 | Half the memory of float64, and it's PyTorch's default type. |
+| D19 | One shared `evaluate.py` for every model | The RF and the neural net are scored by identical code, so the Phase 6 comparison is fair. |
+| D20 | Training is a script (`python -m nids.train_rf`), not a notebook | Reproducible in one command; notebooks are for exploring and explaining. |
+| D21 | Tune 4 settings on validation, then evaluate on test exactly once | Picking settings by test score would make the test score optimistic (leakage through decisions). |
+| D22 | Save metrics as JSON in git, models in `models/` (ignored) | Numbers are small and worth versioning; models are large and can be regenerated in a minute. |
+| D23 | Report false-positive rate next to F1 | With attacks as the majority class, F1 can look good while a quarter of normal traffic raises alarms. |
+| D24 | Keep the 0.5 threshold | Tuning it on test is leakage; validation has a 68% attack mix, so a threshold tuned there wouldn't transfer. |
 
 ---
 
@@ -189,6 +200,20 @@ other way round.
 | **Decision tree** | A model that asks yes/no questions ("is sbytes > 430?") until it reaches an answer. A *stump* is a tree with one question. |
 | **Overfitting** | Memorising the training data instead of learning general patterns. Shows up as a big gap between training and validation scores (99.8% vs 94.9% here). |
 | **float32 / float64** | Number precision. float32 uses 4 bytes per number, float64 uses 8. ML rarely needs the extra precision. |
+| **Random forest** | Many decision trees, each trained on a random resample of the rows and allowed to look at a random subset of features at each split. They vote; the majority wins. Averaging many over-confident trees cancels out their individual mistakes. |
+| **Ensemble** | A model made of many models whose predictions are combined. |
+| **Bagging (bootstrap aggregating)** | Training each tree on a random sample *with replacement* of the training rows, so every tree sees slightly different data. |
+| **Hyperparameter** | A setting you choose before training (number of trees, leaf size), as opposed to what the model learns. Chosen on validation. |
+| **`min_samples_leaf`** | The smallest group of rows a tree leaf may hold. Bigger = less memorising. |
+| **`class_weight="balanced"`** | Makes mistakes on the rarer class cost more during training. Here it lowered false alarms but missed more attacks; F1 preferred the default. |
+| **`predict_proba` / threshold** | The model outputs a score from 0 to 1 (the share of trees voting "attack"). The threshold (0.5) turns it into a yes/no. |
+| **Confusion matrix** | 2×2 table of actual vs. predicted. **TP** = attack caught, **FN** = attack missed, **FP** = normal flagged (false alarm), **TN** = normal left alone. |
+| **False-positive rate (FPR)** | FP / (FP + TN): the share of normal flows that raise an alarm. A SOC's alert-fatigue number. |
+| **ROC AUC** | The chance a random attack gets a higher score than a random normal flow. 1.0 = perfect ranking, 0.5 = coin flip. Independent of the threshold. |
+| **Feature importance (impurity)** | How much each feature's splits cleaned up the trees' groups, averaged. Quick, but biased toward features with many distinct values. |
+| **Generalisation gap** | The drop from validation to test (F1 0.971 → 0.893 here): how much worse the model does on traffic unlike its training data. |
+| **joblib** | Saves Python objects (a fitted model + preprocessor) to a file and loads them back. |
+| **`python -m package.module`** | Runs a module inside an installed package as a script. |
 | **Fixture (pytest)** | Setup code shared between tests, e.g. running `prepare()` once for several tests. |
 | **Editable install (`pip install -e .`)** | Installs your own `src/` package as a link, so edits apply immediately and any script can import it. |
 
@@ -263,3 +288,25 @@ other way round.
 |---|---|---|---|
 | Phase 2 work wasn't committed when Phase 3 started | Commit step skipped | Committed and pushed Phase 2 on its own before Phase 3 | One commit per phase keeps history readable, and only pushed commits count on your GitHub graph. |
 | Training part has 7 states, not 9 | The single `PAR` and `URN` rows fell into validation | Nothing to fix: `handle_unknown="ignore"` covers it | The encoder only knows what it was fitted on. Rare values can vanish from a split. |
+
+### Phase 4: Random forest baseline
+
+**What we built**
+- `src/nids/evaluate.py`: one set of metrics and plots for every model
+- `src/nids/train_rf.py`: tuning on validation, one test evaluation, TTL ablation, false-positive analysis; saves `reports/metrics/rf.json` and `models/rf.joblib`
+- `tests/test_evaluate.py`: metrics checked against a 10-row hand calculation
+- Figures `04_rf_confusion_test.png`, `04_rf_feature_importance.png`; README results section
+
+**What the results told us**
+- Test: recall **98.7%**, precision **81.6%**, F1 **0.893**, false-positive rate **27.2%**, ROC AUC 0.979
+- Validation F1 0.971 vs test 0.893: the official test traffic differs from the training traffic
+- 88% of false alarms have TTL 254. Normal traffic with TTL 254 doubles from 20.1% (train) to 40.7% (test)
+- Removing the TTL columns changed almost nothing (F1 0.892). The shortcut runs deeper than three columns
+
+**Problems we hit and what they taught us**
+
+| Problem | Cause | Fix | Lesson |
+|---|---|---|---|
+| Phase 2 hypothesis ("dropping TTL will show the shortcut") wasn't confirmed | Other features carry the same host signal | Reported it as-is, with the false-positive TTL breakdown as evidence | A negative result is still a result. Report it instead of hiding it. |
+| A quick check counted 9,961 false positives, the script 10,081 | `predict()` breaks exact 0.5 ties toward "normal"; the script uses `score >= 0.5` | Moved the analysis into the training script so all numbers come from one place | Small definition differences change numbers. Compute every reported number in one place. |
+| `rf.json` contained `NaN` (invalid JSON) | pandas turned `class_weight=None` into NaN | Converted missing values to `None` before saving | Always re-load files you write to check they're valid. |

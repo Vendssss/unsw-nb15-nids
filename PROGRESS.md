@@ -9,8 +9,8 @@ Resume point for working across machines. Update after every phase.
 | 1 | Repo setup | ✅ Done |
 | 2 | Data exploration | ✅ Done |
 | 3 | Preprocessing | ✅ Done |
-| 4 | Random forest baseline | ⏭️ Next |
-| 5 | PyTorch feed-forward network | ⬜ |
+| 4 | Random forest baseline | ✅ Done |
+| 5 | PyTorch feed-forward network | ⏭️ Next |
 | 6 | Honest model comparison in README | ⬜ |
 | 7 | Stretch: multi-class by attack category | ⬜ |
 | 8 | Stretch: FastAPI endpoint + Dockerfile | ⬜ |
@@ -24,7 +24,7 @@ Resume point for working across machines. Update after every phase.
 5. Check the files match (PowerShell: `Get-FileHash data\raw\*.csv`):
    - `UNSW_NB15_testing-set.csv` (official **train**, 175,341 rows): `BEC7DD5EC88DC2A0CCC7A07879D338395ED7421750F675FD0339E07DFE0648FA`
    - `UNSW_NB15_training-set.csv` (official **test**, 82,332 rows): `734FE6642EDF758F7C94D7D9149426B49D202FE8E7BF0BEF47392489C3C0A559`
-6. Run `pytest` (12 should pass), read the latest phase notes below, then continue from **Next step**
+6. Run `pytest` (14 should pass). To regenerate the RF model (git-ignored): `python -m nids.train_rf` (~1 min), read the latest phase notes below, then continue from **Next step**
 
 For the why behind each decision and a plain-English glossary, see [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md).
 
@@ -85,6 +85,28 @@ For the why behind each decision and a plain-English glossary, see [docs/LEARNIN
 
 **Open exercise:** `test_validation_keeps_class_ratio` in `tests/test_preprocess.py` (see end of notebook 02)
 
+### Phase 4: Random forest baseline
+
+- `src/nids/evaluate.py`: `binary_metrics()` (accuracy, precision, recall, F1, false-positive rate, ROC AUC, confusion counts), `plot_confusion()`, `save_metrics()`; reused by Phase 5
+- `src/nids/train_rf.py` (`python -m nids.train_rf`, ~1 min on 12 threads): tunes 4 settings on validation, one test evaluation, TTL ablation, false-positive TTL check
+- Outputs: `reports/metrics/rf.json` (committed), `models/rf.joblib` (git-ignored, preprocessor + model), figures `04_rf_confusion_test.png`, `04_rf_feature_importance.png`
+- `tests/test_evaluate.py` (hand-calculated confusion matrix); 14 tests pass
+
+**Key numbers (test, attack = positive)**
+- Accuracy 87.0%, precision 81.6%, recall 98.7%, F1 0.893, false-positive rate 27.2%, ROC AUC 0.979
+- Confusion: TN 26,919 · FP 10,081 · FN 610 · TP 44,722
+- Validation F1 0.971 → test F1 0.893 (different traffic in the official test split)
+- Best settings: `min_samples_leaf=1`, `class_weight=None` (val F1 0.9709)
+- Ablation without TTL: F1 0.892, false-positive rate 27.4%, so essentially no change
+- 88.0% of false positives have `sttl=254`; normal flows with TTL 254 are 20.1% in train vs 40.7% in test
+- Top features: `sttl`, `ct_state_ttl`, `dttl`, `dload`, `rate`
+
+**Decisions**
+- Threshold stays at 0.5: tuning it on test would be leakage, and validation has the wrong mix to tune it for test
+- Report the false-positive rate alongside F1 (SOC alert-fatigue view)
+
+**Open exercises:** `bytes_ratio` (notebook 01), `test_validation_keeps_class_ratio` (notebook 02), compute precision/recall by hand from the confusion matrix (see chat)
+
 ## Next step
 
-Phase 4: random forest baseline in `src/nids/train_rf.py`. Precision, recall, F1 and confusion matrix on validation, then one final test evaluation. Plus the TTL ablation.
+Phase 5: PyTorch feed-forward network on the same `prepare()` arrays, with early stopping on validation and class-imbalance handling, evaluated with `nids.evaluate`.
