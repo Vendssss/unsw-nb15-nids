@@ -21,12 +21,37 @@ network flow described by features such as protocol, service, connection state,
 bytes, packets, and duration.
 
 The data is **not** included in this repo. Download the two partitioned CSVs and
-place them in `data/raw/`:
+place them in `data/raw/` without renaming them:
 
 ```
 data/raw/UNSW_NB15_training-set.csv
 data/raw/UNSW_NB15_testing-set.csv
 ```
+
+> **Note on file names:** in the distributed copies, the names are swapped relative to
+> the paper. The official training split (175,341 flows) is in `UNSW_NB15_testing-set.csv`,
+> and the official testing split (82,332 flows) is in `UNSW_NB15_training-set.csv`.
+> [`src/nids/config.py`](src/nids/config.py) maps them correctly, and the loader checks
+> row counts so a mix-up fails loudly.
+
+**Citation:** N. Moustafa and J. Slay, "UNSW-NB15: a comprehensive data set for network
+intrusion detection systems (UNSW-NB15 network data set)," *Military Communications and
+Information Systems Conference (MilCIS)*, 2015.
+
+## Data exploration highlights
+
+Full analysis: [notebooks/01_data_exploration.ipynb](notebooks/01_data_exploration.ipynb)
+
+| Finding | Why it matters |
+|---|---|
+| Attacks are the **majority**: 68.1% of train, 55.1% of test | Always predicting "attack" scores 55.1% test accuracy, so accuracy alone is misleading |
+| Nine attack families from 40,000 (Generic) down to 130 (Worms) flows | Rare classes will be hard in multi-class |
+| Median attack flow: 2 packets out, **0 back**, ~9 µs | Scans and floods rarely get a reply; `state=INT` (no reply) is 93% attack |
+| Source TTL is the strongest single signal (corr 0.69) | A lab artifact: TTL identifies the attacker machines. Tested with an ablation in Phase 4 |
+| 42.4% of training rows repeat another row's features; 10.4% of test rows also appear in train | Documented, not hidden; slightly inflates test scores |
+
+![Class balance](reports/figures/01_class_balance.png)
+![Bytes by label](reports/figures/01_bytes_by_label.png)
 
 ## Project structure
 
@@ -48,7 +73,11 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install -e .
+pytest
 ```
+
+`pip install -e .` makes the `nids` package importable from notebooks and scripts.
 
 ## Results
 
